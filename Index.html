@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RegTable-to-Anki | 1-Click Regulatory Table Flashcard Clipper</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .cloze-pill {
+      background-color: rgba(59, 130, 246, 0.2);
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.85em;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans p-4 md:p-8">
+
+  <div class="max-w-6xl mx-auto space-y-6">
+    <!-- Header & License Bar -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-4 gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white rounded">Anki 2.1.54+ Ready</span>
+          <span id="proBadge" class="hidden px-2 py-0.5 text-xs font-bold uppercase tracking-wider bg-amber-500 text-slate-900 rounded">PRO UNLOCKED</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-bold mt-1">RegTable-to-Anki Flashcard Clipper</h1>
+        <p class="text-slate-400 text-sm">Convert dense regulatory tables (COLREGS, Aviation, Law, Med) into multi-cloze Anki decks in one click.</p>
+      </div>
+
+      <!-- License Key Input -->
+      <div id="licenseBox" class="bg-slate-800 p-3 rounded-lg border border-slate-700 flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+        <input id="licenseInput" type="text" placeholder="Enter Pro Key ($2.50)" 
+          class="bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500 w-full sm:w-48" />
+        <button onclick="verifyLicense()" 
+          class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap w-full sm:w-auto transition">
+          Unlock Pro
+        </button>
+        <a id="buyLink" href="https://gumroad.com" target="_blank" rel="noopener" 
+          class="text-xs text-indigo-400 hover:underline whitespace-nowrap px-1">Buy Key ($2.50)</a>
+      </div>
+    </header>
+
+    <!-- Pro Feature: 1-Click Bookmarklet Clipper Bar -->
+    <section class="bg-slate-800/80 border border-slate-700 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-wide text-indigo-400 flex items-center gap-2">
+          1-Click Web Table Bookmarklet Clipper (Pro)
+        </h2>
+        <p class="text-xs text-slate-300 mt-1">
+          Unlock Pro to drag the clipper button to your bookmarks bar. Click it on any website (e.g., Transport Canada, IMO, Wikipedia) to copy any HTML table straight into this converter.
+        </p>
+      </div>
+      <div>
+        <a id="bookmarkletBtn" href="javascript:alert('Unlock RegTable-to-Anki Pro ($2.50) to activate the 1-Click Web Table Clipper bookmarklet!');" 
+          class="inline-block bg-slate-700 text-slate-300 border border-slate-500 font-semibold text-xs px-4 py-2.5 rounded shadow cursor-move select-none whitespace-nowrap">
+          📎 Clip Table to Anki (Drag to Bookmarks Bar)
+        </a>
+      </div>
+    </section>
+
+    <!-- Main Workspace: Left = Input & Settings, Right = Live Preview & Export -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Left Column: Table Input & Controls -->
+      <div class="lg:col-span-6 space-y-4">
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3">
+          <div class="flex flex-wrap justify-between items-center gap-2">
+            <label class="text-sm font-semibold">1. Paste Table Data (Excel, Webpage, PDF, or TSV/CSV)</label>
+            <select id="presetSelect" onchange="loadPreset(this.value)" 
+              class="bg-slate-900 border border-slate-600 rounded px-2.5 py-1 text-xs text-indigo-300">
+              <option value="">-- Load Sample Regulatory Table --</option>
+              <option value="colregs_lights">COLREGS: Vessels & Day Shapes / Lights</option>
+              <option value="colregs_sound">COLREGS: Rule 34 & 35 Sound Signals</option>
+              <option value="beaufort">Meteorology: Beaufort Wind Scale</option>
+            </select>
+          </div>
+
+          <textarea id="rawInput" rows="9" oninput="parseAndRender()"
+            placeholder="Paste a table copied from a webpage, Excel, or Word here...&#10;&#10;First row should be column headers (e.g., Vessel Status [TAB] Day Shape [TAB] Night Lights)."
+            class="w-full bg-slate-900 border border-slate-700 rounded p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div>
+              <label class="block text-xs text-slate-400 uppercase font-semibold mb-1">Card Format</label>
+              <select id="cardMode" onchange="parseAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-xs">
+                <option value="multi_cloze">Smart Multi-Cloze (c1, c2, c3) [Pro]</option>
+                <option value="single_cloze">Single Cloze (All c1)</option>
+                <option value="basic">Basic (Col 1 Front / Rest Back)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs text-slate-400 uppercase font-semibold mb-1">Anchor Column (Prompt)</label>
+              <select id="anchorCol" onchange="parseAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-xs">
+                <option value="0">Column 1 (Default)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs text-slate-400 uppercase font-semibold mb-1">Anki Deck Tag</label>
+              <input id="deckTag" type="text" value="COLREGS_Study" oninput="parseAndRender()"
+                class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-xs" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Column Selection Toggles -->
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-2">
+          <h3 class="text-sm font-semibold">2. Select Columns to Include & Cloze-Test</h3>
+          <p class="text-xs text-slate-400">Uncheck any column you want to exclude from the generated cards.</p>
+          <div id="columnToggles" class="flex flex-wrap gap-2 pt-1"></div>
+        </div>
+      </div>
+
+      <!-- Right Column: Live Anki Card Preview & Export -->
+      <div class="lg:col-span-6 space-y-4">
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 flex flex-col h-full justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+              <div>
+                <h2 class="text-sm font-semibold">3. Live Anki Card Preview</h2>
+                <p id="cardCountLabel" class="text-xs text-slate-400">0 notes generated</p>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="copyAnkiText()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-3 py-2 rounded transition">
+                  Copy Raw Import Text
+                </button>
+                <button onclick="downloadAnkiFile()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded transition">
+                  Download Anki .TXT Deck
+                </button>
+              </div>
+            </div>
+
+            <!-- Preview Cards Feed -->
+            <div id="previewContainer" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- Native Header Footnote -->
+          <div class="bg-slate-900/90 p-3 rounded border border-slate-700/80 text-[11px] text-slate-400 font-mono">
+            <div class="text-slate-300 font-sans font-semibold mb-1">Included Anki 2.1.54+ Auto-Import Directives:</div>
+            <div id="headerPreview">#separator:tab | #html:true | #notetype:Cloze</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // CONFIGURATION (EDIT BEFORE DEPLOYING)
+    // ==========================================
+    const CONFIG = {
+      GUMROAD_PRODUCT_ID: "YOUR_GUMROAD_PRODUCT_ID",
+      OFFLINE_MASTER_PREFIX: "ANKIPRO-", // e.g., ANKIPRO-2026-DECK
+      FREE_ROW_LIMIT: 8,
+      STORAGE_KEY_PRO: "regtable_anki_pro_v1"
+    };
+
+    const PRESETS = {
+      colregs_lights: `Vessel Condition (Rules 24-30)\tDay Shape\tNight Lights\tRule Reference
+Vessel towing (< 200m length of tow)\tNone (Diamond only if > 200m)\tTwo masthead lights in a vertical line, sidelights, sternlight, yellow towing light above sternlight\tRule 24(a)
+Vessel towing (> 200m length of tow)\tDiamond shape where best seen\tThree masthead lights in a vertical line, sidelights, sternlight, yellow towing light above sternlight\tRule 24(a)
+Vessel Not Under Command (NUC)\tTwo black balls in a vertical line\tTwo all-round red lights in a vertical line (+ sidelights/sternlight ONLY when making way)\tRule 27(a)
+Vessel Restricted in Ability to Manoeuvre (RAM)\tBall - Diamond - Ball in a vertical line\tRed - White - Red all-round lights in a vertical line (+ masthead/sidelights/sternlight when making way)\tRule 27(b)
+Vessel Constrained by her Draught (CBD)\tBlack cylinder where best seen\tThree all-round red lights in a vertical line in addition to lights for a power-driven vessel\tRule 28
+Vessel Engaged in Fishing (Other than Trawling)\tTwo cones with apexes together\tRed over White all-round lights (+ sidelights/sternlight when making way)\tRule 26(c)
+Vessel Engaged in Trawling\tTwo cones with apexes together\tGreen over White all-round lights (+ masthead/sidelights/sternlight when making way)\tRule 26(b)
+Vessel Engaged in Pilotage Duty\tFlag H (Hotel) by day\tWhite over Red all-round lights at or near masthead (+ sidelights/sternlight when underway)\tRule 29
+Vessel at Anchor (< 50m)\tOne black ball in fore part\tOne all-round white light in fore part where best seen\tRule 30(b)`,
+      colregs_sound: `Signal Blast Pattern\tMeaning (Rule 34 Manoeuvring)\tMeaning (Rule 35 Restricted Visibility)\tInterval / Notes
+One short blast (●)\tI am altering my course to starboard\tN/A\tApprox 1 second duration
+Two short blasts (● ●)\tI am altering my course to port\tN/A\tApprox 1 second duration
+Three short blasts (● ● ●)\tI am operating astern propulsion\tN/A\tDoes not mean moving astern through water
+Five or more short rapid blasts (●●●●●)\tDoubt / unclear intentions of other vessel\tN/A\tSupplemented by at least 5 light flashes if desired
+One prolonged blast (▬)\tApproaching blind bend / leaving berth\tPower-driven vessel making way through water\tMax 2 minutes interval in fog
+Two prolonged blasts (▬ ▬)\tN/A\tPower-driven vessel underway but stopped and making no way\tMax 2 minutes interval (~2 sec between blasts)
+One prolonged, two short (▬ ● ●)\tN/A\tNUC, RAM, CBD, Sailing, Fishing, or Towing vessel\tMax 2 minutes interval in fog
+One prolonged, three short (▬ ● ● ●)\tN/A\tVessel being towed (if manned)\tSounded immediately after signal of towing vessel`,
+      beaufort: `Beaufort Number\tDescription\tWind Speed (Knots)\tSea State / Wave Appearance
+Force 0\tCalm\t< 1 kt\tSea like a mirror (0 ft)
+Force 1\tLight Air\t1 - 3 kts\tRipples with appearance of scales, no foam crests
+Force 2\tLight Breeze\t4 - 6 kts\tSmall wavelets, crests look glassy and do not break
+Force 3\tGentle Breeze\t7 - 10 kts\tLarge wavelets, crests begin to break, scattered whitecaps
+Force 4\tModerate Breeze\t11 - 16 kts\tSmall waves becoming longer, fairly frequent white horses
+Force 5\tFresh Breeze\t17 - 21 kts\tModerate waves, many white horses, chance of some spray
+Force 6\tStrong Breeze\t22 - 27 kts\tLarge waves begin to form, extensive white foam crests, spray
+Force 7\tNear Gale\t28 - 33 kts\tSea heaps up, white foam from breaking waves blown in streaks
+Force 8\tGale\t34 - 40 kts\tModerately high waves of greater length, spindrift begins`
+    };
+
+    let isPro = localStorage.getItem(CONFIG.STORAGE_KEY_PRO) === "true";
+    let activeCols = [];
+    let lastHeaderCount = 0;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (isPro) enableProUI();
+      document.getElementById("presetSelect").value = "colregs_lights";
+      loadPreset("colregs_lights");
+    });
+
+    function loadPreset(key) {
+      if (!key || !PRESETS[key]) return;
+      document.getElementById("rawInput").value = PRESETS[key];
+      parseAndRender(true);
+    }
+
+    // Parse TSV or CSV into 2D array
+    function parseRawTable(raw) {
+      const lines = raw.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length === 0) return { headers: [], rows: [] };
+
+      // Detect delimiter: prefer Tab, fallback to Pipe or Comma
+      const firstLine = lines[0];
+      let delimiter = "\t";
+      if (!firstLine.includes("\t")) {
+        delimiter = firstLine.includes("|") ? "|" : ",";
+      }
+
+      const splitLine = (line) => line.split(delimiter).map(cell => cell.trim().replace(/^"|"$/g, ""));
+      const headers = splitLine(lines[0]);
+      const rows = lines.slice(1).map(splitLine);
+      return { headers, rows };
+    }
+
+    function updateColumnControls(headers, forceReset = false) {
+      if (!forceReset && headers.length === lastHeaderCount) return;
+      lastHeaderCount = headers.length;
+      activeCols = headers.map(() => true);
+
+      // Update Anchor Dropdown
+      const anchorSelect = document.getElementById("anchorCol");
+      anchorSelect.innerHTML = "";
+      headers.forEach((h, i) => {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `Col ${i + 1}: ${h || "Untitled"}`;
+        anchorSelect.appendChild(opt);
+      });
+
+      // Update Column Checkboxes
+      const togglesDiv = document.getElementById("columnToggles");
+      togglesDiv.innerHTML = "";
+      headers.forEach((h, i) => {
+        const label = document.createElement("label");
+        label.className = "flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-2.5 py-1 rounded text-xs cursor-pointer select-none";
+        label.innerHTML = `
+          <input type="checkbox" checked onchange="toggleCol(${i}, this.checked)" class="accent-indigo-500" />
+          <span>${h || `Col ${i + 1}`}</span>
+        `;
+        togglesDiv.appendChild(label);
+      });
+    }
+
+    function toggleCol(index, state) {
+      activeCols[index] = state;
+      parseAndRender(false);
+    }
+
+    function buildAnkiNotes() {
+      const raw = document.getElementById("rawInput").value;
+      const { headers, rows } = parseRawTable(raw);
+      if (headers.length === 0) return { headers: [], notes: [], totalRows: 0 };
+
+      let mode = document.getElementById("cardMode").value;
+      if (mode === "multi_cloze" && !isPro) {
+        // Fallback preview notice if user selects Multi-Cloze without Pro on export, but let them preview it!
+      }
+
+      const anchorIdx = parseInt(document.getElementById("anchorCol").value, 10) || 0;
+      const tag = (document.getElementById("deckTag").value || "RegTable").trim().replace(/\s+/g, "_");
+
+      const notes = rows.map((row) => {
+        const anchorHeader = headers[anchorIdx] || "Item";
+        const anchorValue = row[anchorIdx] || "";
+
+        if (mode === "basic") {
+          const front = `<strong>${anchorHeader}:</strong> ${anchorValue}`;
+          const backParts = [];
+          headers.forEach((h, i) => {
+            if (i === anchorIdx || !activeCols[i] || !row[i]) return;
+            backParts.push(`<b>${h}:</b> ${row[i]}`);
+          });
+          return {
+            type: "Basic",
+            fields: [front, backParts.join("<br>"), tag],
+            previewHtml: `<div class="text-xs text-indigo-300 font-semibold mb-1">[Front] ${front}</div><div class="text-xs text-slate-300">[Back] ${backParts.join(" | ")}</div>`
+          };
+        } else {
+          // Cloze Modes
+          let clozeCounter = 1;
+          const attrParts = [];
+          const previewParts = [];
+
+          headers.forEach((h, i) => {
+            if (i === anchorIdx || !activeCols[i] || !row[i]) return;
+            const cNum = mode === "multi_cloze" ? clozeCounter++ : 1;
+            attrParts.push(`<b>${h}:</b> {{c${cNum}::${row[i]}}}`);
+            previewParts.push(`<b>${h}:</b> <span class="cloze-pill">{{c${cNum}::${row[i]}}}</span>`);
+          });
+
+          const fullText = `<b>${anchorHeader}:</b> ${anchorValue}<br>${attrParts.join(" &bull; ")}`;
+          const previewHtml = `<b>${anchorHeader}:</b> <span class="text-white font-semibold">${anchorValue}</span><br><div class="mt-1 leading-relaxed">${previewParts.join(" &bull; ")}</div>`;
+
+          return {
+            type: "Cloze",
+            fields: [fullText, tag],
+            previewHtml
+          };
+        }
+      });
+
+      return { headers, notes, totalRows: rows.length, mode, tag };
+    }
+
+    function parseAndRender(forceReset = false) {
+      const raw = document.getElementById("rawInput").value;
+      const { headers } = parseRawTable(raw);
+      updateColumnControls(headers, forceReset);
+
+      const { notes, mode, tag } = buildAnkiNotes();
+      const container = document.getElementById("previewContainer");
+      container.innerHTML = "";
+
+      const noteTypeHeader = mode === "basic" ? "Basic" : "Cloze";
+      document.getElementById("headerPreview").textContent = `#separator:tab  |  #html:true  |  #notetype:${noteTypeHeader}  |  #tags:${tag}`;
+      document.getElementById("cardCountLabel").textContent = `${notes.length} row(s) parsed ${!isPro && notes.length > CONFIG.FREE_ROW_LIMIT ? `(Free export
